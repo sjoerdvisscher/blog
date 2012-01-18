@@ -2,7 +2,7 @@
 
 _The complete code of this blogpost can be found in [this gist][0]._
 
-For a while I've been thinking about how to implement zippers with Multiplate. [Oleg showed][1] how to implement a zipper for traversables, and Multiplate is a generalization of traversable to a family of types, so this seemed a good place to start.
+For a while I've been thinking about how to implement zippers with [Multiplate][6]. [Oleg showed][1] how to implement a zipper for traversables, and Multiplate is a generalization of traversable to a family of types, so this seemed a good place to start.
 
 ## A zipper for traversables
 
@@ -13,30 +13,30 @@ data Zipper t a = ZDone (t a)
                 | Z a (Maybe a -> Zipper t a)
 ```
 
-and ignore the `Maybe` (it's not a required part), that you can write it as `Free (Store a) (t a)`, where [`Free`][2] is declared as:
+and ignore the `Maybe` (it's not a required part), that you can write it as `Free (Store a) (t a)`, where `Free` is from the [free package][2]:
 
 ```haskell
 data Free f a = Pure a | Free (f (Free f a))
 ```
 
-and [`Store`][3] could be declared as (it is actually based on `StoreT`):
+and `Store` is from the [comonad-transformers package]][3], and could be declared as (it is actually based on `StoreT`):
 
 ```haskell
-data Store b a = Store b (b -> a)
+data Store b a = Store (b -> a) b
 ```
 
 The helper functions for `Free` and `Store` make the rest of the code a lot shorter, for example, `zip_up = iter extract`. The zipper itself becomes (after quite a bit of inlining and rewriting)
 
 ```haskell
 zipper :: Traversable t => t a -> Free (Store a) (t a)
-zipper = flip runCont pure . traverse (\a -> cont (\k -> wrap (store k a)))
+zipper = flip runCont Pure . traverse (\a -> cont (\k -> Free (store k a)))
 ```
 
-This uses the applicative instance of the continuation monad for the traversal. But `Free` is applicative too, so what happens if we use that? What we'll need is a function of type `a -> Free (Store a) a`. We could use `pure`, but that obviously has "no effect", so we'll use `wrap`, and then we'll need a `Store a (Free (Store a) a)`, which means an `a` and a function of type `a -> Free (Store a) a` again. We have an `a`, and this time we will use `pure`. So by just following the types we have:
+This uses the applicative instance of the continuation monad for the traversal. But `Free` is applicative too, so what happens if we use that? What we'll need is a function of type `a -> Free (Store a) a`. We could use `Pure`, but that obviously has "no effect", so we'll use `Free`, and then we'll need a `Store a (Free (Store a) a)`, which means an `a` and a function of type `a -> Free (Store a) a` again. We have an `a`, and this time we will use `Pure`. So by just following the types we have:
 
 ```haskell
 zipper :: Traversable t => t a -> Free (Store a) (t a)
-zipper = traverse (wrap . store pure)
+zipper = traverse (Pure . store Free)
 ```
 
 And it works! I find this amazing; we have 2 types, `Free` and `Store`, which together happen to fit the zipper type, and it turns out their semantics as implemented in their `Applicative` and `Functor` instances also match the semantics of zippers!
@@ -122,7 +122,7 @@ We now have everything ready to build a zipper plate. It is almost the same code
 
 ```haskell
 zipperPlate :: Multiplate fam => Plate fam (Zipper fam)
-zipperPlate = multiplate (\w -> wrap . FamStore w . store pure)
+zipperPlate = multiplate (\w -> Free . FamStore w . store Pure)
 ```
 
 How do we use this plate? First we need a function that converts a value into a zipper. As always with Multiplate we have to say for which type we want to run the plate, but instead of using a projector now we use the type witness. The function is just the zipper plate with the `Plate` type synonym expanded. 
@@ -151,9 +151,20 @@ modify _ _ (Pure t) = Pure t
 modify w f (Free fs) = Free (maybe fs (FamStore w . seeks f) (getStore w fs))
 ```
 
+These are the most important operations on zippers. There are some more in [the complete code listing][0], which also contains a complete example that uses the zipper to change an expression.
+
+## Conclusion
+
+As usual with my Haskell code, this was just a fun and interesting programming exercise. So the question is, what to do with this? Is this useful enough to turn into a package, and if so, should I include the modified `Multiplate` type class, or should the Multiplate package get an update?
+
+I also wonder about the performance. There's not much going on, but that's certainly not always a guarantee for good performance. Does anybody have a performance benchmark for zippers?
+
+And a final question: Are there datatypes where you could write a zipper for manually, but not a `Multiplate` instance?
+
 [0]: https://gist.github.com/1611472
 [1]: http://www.haskell.org/pipermail/haskell-cafe/2009-April/059069.html
 [2]: http://hackage.haskell.org/packages/archive/free/2.0.2/doc/html/Control-Monad-Free.html
 [3]: http://hackage.haskell.org/packages/archive/comonad-transformers/2.0.2/doc/html/Control-Comonad-Trans-Store-Lazy.html
 [4]: http://arxiv.org/abs/1103.2841
 [5]: http://hackage.haskell.org/packages/archive/type-equality/0.1.0.2/doc/html/Data-Type-Equality.html#t:EqT
+[6]: http://www.haskell.org/haskellwiki/Multiplate
