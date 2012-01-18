@@ -19,7 +19,7 @@ and ignore the `Maybe` (it's not a required part), that you can write it as `Fre
 data Free f a = Pure a | Free (f (Free f a))
 ```
 
-and `Store` is from the [comonad-transformers package]][3], and could be declared as (it is actually based on `StoreT`):
+and `Store` is from the [comonad-transformers package][3], and could be declared as (it is actually based on `StoreT`):
 
 ```haskell
 data Store b a = Store (b -> a) b
