@@ -1,5 +1,7 @@
 # Zippers with (a variation on) Multiplate.
 
+_The complete code of this blogpost can be found in [this gist][0]._
+
 For a while I've been thinking about how to implement zippers with Multiplate. [Oleg showed][1] how to implement a zipper for traversables, and Multiplate is a generalization of traversable to a family of types, so this seemed a good place to start.
 
 ## A zipper for traversables
@@ -11,11 +13,23 @@ data Zipper t a = ZDone (t a)
                 | Z a (Maybe a -> Zipper t a)
 ```
 
-and ignore the `Maybe` (it's not a required part), that you can write it as `Free (Store a) (t a)`. The helper functions for [`Free`][2] and [`Store`][3] make the rest of the code a lot shorter, for example, `zip_up = iter extract`. The zipper itself becomes
+and ignore the `Maybe` (it's not a required part), that you can write it as `Free (Store a) (t a)`, where [`Free`][2] is declared as:
+
+```haskell
+data Free f a = Pure a | Free (f (Free f a))
+```
+
+and [`Store`][3] could be declared as (it is actually based on `StoreT`):
+
+```haskell
+data Store b a = Store b (b -> a)
+```
+
+The helper functions for `Free` and `Store` make the rest of the code a lot shorter, for example, `zip_up = iter extract`. The zipper itself becomes (after quite a bit of inlining and rewriting)
 
 ```haskell
 zipper :: Traversable t => t a -> Free (Store a) (t a)
-zipper = flip runCont return . traverse (\a -> cont (\k -> wrap (store k a)))
+zipper = flip runCont pure . traverse (\a -> cont (\k -> wrap (store k a)))
 ```
 
 This uses the applicative instance of the continuation monad for the traversal. But `Free` is applicative too, so what happens if we use that? What we'll need is a function of type `a -> Free (Store a) a`. We could use `pure`, but that obviously has "no effect", so we'll use `wrap`, and then we'll need a `Store a (Free (Store a) a)`, which means an `a` and a function of type `a -> Free (Store a) a` again. We have an `a`, and this time we will use `pure`. So by just following the types we have:
@@ -29,7 +43,7 @@ And it works! I find this amazing; we have 2 types, `Free` and `Store`, which to
 
 ## Zippers and lenses
 
-So, a zipper of a datastructure of type `a` with parts of type `b` has type `Free (Store b) a`. You can think of it as a number of chained stores, something like `(b, b -> (b, b -> (b, b -> (... -> a))))`. It is interesting to compare this type to the types mentioned by Russel O'Connor in his [Multiplate paper][4]. A lens is `a -> Store b a`, or a zipper with exactly one subpart. And his `CartesianStore b a` is actually isomorphic to `Free (Store b) a`, but it is a nested type. It is roughly `(b, (b, ... (b -> b -> ... a)))`.
+So, a zipper of a datastructure of type `a` with parts of type `b` has type `Free (Store b) a`. You can think of it as a number of chained stores, something like `(b, b -> (b, b -> (b, b -> (... -> a))))`. It is interesting to compare this type to the types mentioned by Russel O'Connor in his [Multiplate paper][4]. A lens is `a -> Store b a`, or a zipper with exactly one subpart. And Russel's `CartesianStore b a` is actually isomorphic to `Free (Store b) a`, but it is a nested type. It is roughly `(b, (b, ... (b -> b -> ... a)))`.
 
 ## Zipping through multiple types
 
@@ -51,7 +65,7 @@ instance Functor (FamStore fam) where
   fmap f (FamStore mem s) = FamStore mem (fmap f s)
 ```
 
-When we put this together we have the type of a zipper through a family of types:
+We can now use `FamStore fam` instead of `Store b` to get the type of a zipper through a family of types:
 
 ```haskell
 type Zipper fam a = Free (FamStore fam) a
@@ -72,7 +86,7 @@ getStore wC (FamStore wB st) = (\Refl -> st) <$> wC `eqT` wB
 
 ## A Multiplate variation
 
-Multiplate works with the concept of 'plates', a record parametrized by a functor f with one field of type A -> f A for each type in a family. Here's an example:
+Multiplate works with the concept of 'plates', a record parametrized by a functor `f` with one field of type `A -> f A` for each type in a family. Here's an example:
 
 ```haskell
 data ABCPlate f = ABCPlate
@@ -88,7 +102,7 @@ But, records are not always easy to work with, and there's a pattern in the type
 type Plate fam f = forall x. fam x -> x -> f x
 ```
 
-The Multiplate type class now no longer needs `mkBuild`, for example `purePlate` can now simply be implemented like this:
+The Multiplate type class now no longer needs `mkBuild`, for example `purePlate` can simply ignore the type witness:
 
 ```haskell
 purePlate :: Applicative f => Plate fam f
@@ -102,6 +116,42 @@ class EqT fam => Multiplate fam where
   multiplate :: Applicative f => Plate fam f -> Plate fam f
 ```
 
+## Putting it all together
+
+We now have everything ready to build a zipper plate. It is almost the same code as the traversable zipper, but we now use `multiplate` instead of `traverse`, and we also need to wrap the store with a `FamStore` containing the type witness, which is provided by `multiplate`.
+
+```haskell
+zipperPlate :: Multiplate fam => Plate fam (Zipper fam)
+zipperPlate = multiplate (\w -> wrap . FamStore w . store pure)
+```
+
+How do we use this plate? First we need a function that converts a value into a zipper. As always with Multiplate we have to say for which type we want to run the plate, but instead of using a projector now we use the type witness. The function is just the zipper plate with the `Plate` type synonym expanded. 
+
+```haskell
+enter :: Multiplate fam => fam a -> a -> Zipper fam a
+enter = zipperPlate
+```
+
+We'll also need a function that moves to the next step (if possible), and one that converts the zipper back to a value again. These functions don't need a type witness, because we use the function `extract :: Store b a -> a`, which doesn't care what `b` is.
+
+```haskell
+next :: Zipper fam a -> Zipper fam a
+next (Pure t) = Pure t
+next (Free (FamStore _ s)) = extract s
+
+leave :: Zipper fam a -> a
+leave = iter (\(FamStore _ s) -> extract s)
+```
+
+And finally we need a function to modify the value of the current position. We need a type witness again, and if it doesn't match the one in the `FamStore`, we'll keep the old value.
+
+```haskell
+modify :: Multiplate fam => fam b -> (b -> b) -> Zipper fam a -> Zipper fam a
+modify _ _ (Pure t) = Pure t
+modify w f (Free fs) = Free (maybe fs (FamStore w . seeks f) (getStore w fs))
+```
+
+[0]: https://gist.github.com/1611472
 [1]: http://www.haskell.org/pipermail/haskell-cafe/2009-April/059069.html
 [2]: http://hackage.haskell.org/packages/archive/free/2.0.2/doc/html/Control-Monad-Free.html
 [3]: http://hackage.haskell.org/packages/archive/comonad-transformers/2.0.2/doc/html/Control-Comonad-Trans-Store-Lazy.html
