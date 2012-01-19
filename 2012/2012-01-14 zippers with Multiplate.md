@@ -161,6 +161,8 @@ I also wonder about the performance. There's not much going on, but that's certa
 
 And a final question: Are there datatypes where you could write a zipper for manually, but not a `Multiplate` instance?
 
+_You can add comments to this article [on reddit][7]._
+
 [0]: https://gist.github.com/1611472
 [1]: http://www.haskell.org/pipermail/haskell-cafe/2009-April/059069.html
 [2]: http://hackage.haskell.org/packages/archive/free/2.0.2/doc/html/Control-Monad-Free.html
@@ -168,3 +170,4 @@ And a final question: Are there datatypes where you could write a zipper for man
 [4]: http://arxiv.org/abs/1103.2841
 [5]: http://hackage.haskell.org/packages/archive/type-equality/0.1.0.2/doc/html/Data-Type-Equality.html#t:EqT
 [6]: http://www.haskell.org/haskellwiki/Multiplate
+[7]: http://www.reddit.com/r/haskell/comments/omzwj/zippers_with_a_variation_on_multiplate/
