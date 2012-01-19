@@ -170,4 +170,4 @@ _You can add comments to this article [on reddit][7]._
 [4]: http://arxiv.org/abs/1103.2841
 [5]: http://hackage.haskell.org/packages/archive/type-equality/0.1.0.2/doc/html/Data-Type-Equality.html#t:EqT
 [6]: http://www.haskell.org/haskellwiki/Multiplate
-[7]: http://www.reddit.com/r/haskell/comments/omzwj/zippers_with_a_variation_on_multiplate/
+[7]: http://www.reddit.com/r/haskell/comments/on3c9/zippers_with_a_variation_on_multiplate/
