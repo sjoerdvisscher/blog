@@ -36,7 +36,7 @@ This uses the applicative instance of the continuation monad for the traversal. 
 
 ```haskell
 zipper :: Traversable t => t a -> Free (Store a) (t a)
-zipper = traverse (Pure . store Free)
+zipper = traverse (Free . store Pure)
 ```
 
 And it works! I find this amazing; we have 2 types, `Free` and `Store`, which together happen to fit the zipper type, and it turns out their semantics as implemented in their `Applicative` and `Functor` instances also match the semantics of zippers!
