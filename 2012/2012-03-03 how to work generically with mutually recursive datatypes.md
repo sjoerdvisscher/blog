@@ -184,5 +184,8 @@ Conclusion
 
 Generic programming libraries like Multiplate that work with the original datatypes, instead of using their own generic representations, have the advantage that they don't have to do everything for you. You can simply write your own functions with a specific implementation for some of the cases and use generic programming for the boring boilerplate cases.
 
+_You can add comments to this article [on reddit][2]._
+
 [0]: http://comments.gmane.org/gmane.comp.lang.haskell.cafe/96737
 [1]: http://hackage.haskell.org/packages/archive/multiplate/0.0.1.1/doc/html/Data-Generics-Multiplate.html
+[2]: http://www.reddit.com/r/haskell/comments/qfyyn/how_to_work_generically_with_mutually_recursive/
