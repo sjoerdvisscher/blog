@@ -108,6 +108,9 @@ Conclusion
 
 So, at the cost of a bit of type safety, we can do generics with mutually recursive datatypes without any extensions to Haskell'98. Which you prefer probably depends a lot on how much you like or hate GADTs.
 
+_You can add comments to this article [on reddit][3]._
+
 [0]: https://github.com/sjoerdvisscher/blog/blob/master/2012/2012-03-03%20how%20to%20work%20generically%20with%20mutually%20recursive%20datatypes.md
 [1]: http://community.haskell.org/~ndm/uniplate/
 [2]: https://gist.github.com/1974310
+[3]: http://www.reddit.com/r/haskell/comments/qho8x/how_to_work_generically_with_mutually_recursive/
