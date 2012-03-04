@@ -23,7 +23,7 @@ data Expr = Con Int
 type Var = String
 ```
 
-The normal way to implement this is like this: Given a list of bounded variables, we return a tuple of free variables and "declared" variables. The `Let` constructor turns these declared variables into bound variables. So we have the type `[Var] -> ([Var], [Var])`. This turns out to be a Monoid (using the instances for `(->)`, `(,)` and `[]`) which helps to shorten the code.
+The normal way to implement this is like this: Given a list of bound variables, we return a tuple of free variables and "declared" variables. The `Let` constructor turns these declared variables into bound variables. So we have the type `[Var] -> ([Var], [Var])`. This turns out to be a Monoid (using the instances for `(->)`, `(,)` and `[]`) which helps to shorten the code.
 
 ```haskell
 freeVarsDecl :: Decl -> [Var] -> ([Var], [Var])
@@ -34,11 +34,11 @@ freeVarsExpr :: Expr -> [Var] -> ([Var], [Var])
 freeVarsExpr (Con _)     = mempty
 freeVarsExpr (Add e1 e2) = freeVarsExpr e1 `mappend` freeVarsExpr e2
 freeVarsExpr (Mul e1 e2) = freeVarsExpr e1 `mappend` freeVarsExpr e2
-freeVarsExpr (EVar v)    = \bounded -> (if (v `elem` bounded) then [] else [v], [])
-freeVarsExpr (Let d e)   = \bounded -> 
+freeVarsExpr (EVar v)    = \bound -> (if (v `elem` bound) then [] else [v], [])
+freeVarsExpr (Let d e)   = \bound -> 
   let
-    (freeD, declD) = freeVarsDecl d bounded
-    (freeE, _)     = freeVarsExpr e (declD ++ bounded)
+    (freeD, declD) = freeVarsDecl d bound
+    (freeE, _)     = freeVarsExpr e (declD ++ bound)
   in
     (freeD ++ freeE, [])
 ```
@@ -61,11 +61,11 @@ freeVars Decl (Seq d1 d2) = freeVars Decl d1 `mappend` freeVars Decl d2
 freeVars Expr (Con _)     = mempty
 freeVars Expr (Add e1 e2) = freeVars Expr e1 `mappend` freeVars Expr e2
 freeVars Expr (Mul e1 e2) = freeVars Expr e1 `mappend` freeVars Expr e2
-freeVars Expr (EVar v)    = \bounded -> (if (v `elem` bounded) then [] else [v], [])
-freeVars Expr (Let d e)   = \bounded -> 
+freeVars Expr (EVar v)    = \bound -> (if (v `elem` bound) then [] else [v], [])
+freeVars Expr (Let d e)   = \bound -> 
   let
-    (freeD, declD) = freeVars Decl d bounded
-    (freeE, _)     = freeVars Expr e (declD ++ bounded)
+    (freeD, declD) = freeVars Decl d bound
+    (freeE, _)     = freeVars Expr e (declD ++ bound)
   in
     (freeD ++ freeE, [])
 ```
@@ -108,13 +108,13 @@ We can now take out the boring parts of the `freeVars` function, and let them be
 ```haskell
 freeVarsFold :: Fold AST ([Var] -> ([Var], [Var]))
 freeVarsFold Decl (v := e)    = const ([], [v]) `mappend` freeVarsFold Expr e
-freeVarsFold Expr (Let d e)   = \bounded -> 
+freeVarsFold Expr (Let d e)   = \bound -> 
   let
-    (freeD, declD) = freeVarsFold Decl d bounded
-    (freeE, _)     = freeVarsFold Expr e (declD ++ bounded)
+    (freeD, declD) = freeVarsFold Decl d bound
+    (freeE, _)     = freeVarsFold Expr e (declD ++ bound)
   in
     (freeD ++ freeE, [])
-freeVarsFold Expr (EVar v)    = \bounded -> (if (v `elem` bounded) then [] else [v], [])
+freeVarsFold Expr (EVar v)    = \bound -> (if (v `elem` bound) then [] else [v], [])
 freeVarsFold w    a           = fold freeVarsFold w a
 ```
 
