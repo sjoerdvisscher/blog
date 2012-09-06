@@ -51,7 +51,7 @@ But the type variable `c` only appears in the constraint, and it is not possible
 ```Haskell
 data For (c :: * -> Constraint) = For
 
-build :: For c -> (forall a. Dict (c a) -> (t -> a) -> a) -> t
+build :: For c -> (forall s. c s => (t -> s) -> s) -> t
 ```
 
 There's one more problem. With `build` this way, the instance for `P` would become:
