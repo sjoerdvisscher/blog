@@ -1,7 +1,7 @@
 Constraint-based Generics
 =========================
 
-Inspired by Multiplate and lenses I have been searching for more ways to do generics in the style of applicative traversals. Last weekend I found an interesting method using the `ConstraintKinds` extension.
+Inspired by Multiplate and lenses I have been searching for more ways to do generics in the style of applicative traversals. Last weekend I found an interesting method using [the ConstraintKinds extension](http://blog.omega-prime.co.uk/?p=127).
 
 I hope you like reading code, because I think the easiest way to explain this is to show the code.
 
