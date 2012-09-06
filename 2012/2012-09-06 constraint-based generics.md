@@ -158,3 +158,7 @@ getADT = do
 And that's it!
 
 More example code is [here](https://gist.github.com/3591546), including a version of `ADT` for kind `* -> *`. Next week I'm at ICFP, and I hope I'll have some time to release this code to Hackage. And of course I'd love to hear your feedback if you're at ICFP too!
+
+_Or you can leave a comment [on reddit][0]._
+
+[0]: http://www.reddit.com/r/haskell/comments/zgc4j/constraintbased_generics/
