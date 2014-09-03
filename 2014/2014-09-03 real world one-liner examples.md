@@ -50,7 +50,7 @@ that we stored first.
 `Data.Hashable`
 ---------------
 
-The next example is `hashWithSalt` from the [hashable][5]. It's type is
+The next example is `hashWithSalt` from the [hashable][5]. Its type is
 `Int -> a -> Int`, which at first sight doesn't look like something `one-liner`
 can handle. However, if we flip it we get `a -> Int -> Int`, and `Int -> Int` is
 a monoid if we wrap it in `Endo`. Now we can use `gfoldMap` again.
@@ -253,6 +253,7 @@ hoped, most generic functions that did not fit in one of the 3 categories above,
 were implementable with `one-liner`, and the few ones that didn't provided useful
 new additions to the library.
 
+_You can add comments to this article [on reddit][13]._
 
 [0]: http://hackage.haskell.org/package/one-liner-0.5
 [1]: https://www.google.se/search?q=%22import+GHC.Generics%22+site:hackage.haskell.org
@@ -267,3 +268,4 @@ new additions to the library.
 [10]: http://hackage.haskell.org/package/smallcheck-1.1.1/docs/Test-SmallCheck-Series.html
 [11]: https://hackage.haskell.org/package/contravariant-1.2/docs/Data-Functor-Contravariant-Divisible.html
 [12]: http://hackage.haskell.org/package/smallcheck-1.1.1/docs/Test-SmallCheck-Series.html#v:alts2
+[13]: http://www.reddit.com/r/haskell/comments/2feen3/real_world_oneliner_examples/
