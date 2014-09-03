@@ -9,17 +9,15 @@ To do this, I searched Google for [uses of GHC.Generics on Hackage][1].
 
 `Data.Binary`
 ------------------
-The first example I already used in the [previous blogpost][4]:
+The first example is one I already used in the [previous blogpost][4]:
 `put` and `get` from the [binary][3] package.
-With the new version of `one-liner`, the code looks like this:
+With the new version of `one-liner`, the code for a generic `put` looks like this:
 
 ```haskell
 gput :: (ADT t, Constraints t Binary) => t -> Put
 gput t = putWord8 (toEnum (ctorIndex t)) <> gfoldMap (For :: For Binary) put t
-
-gget :: (ADT t, Constraints t Binary) => Get t
-gget = getWord8 >>= \ix -> createA (For :: For Binary) get !! fromEnum ix
 ```
+
 `Put` is a `Monoid` (with `mappend = return ()` and `(<>) = (>>)`), so we can
 use `gfoldMap`.
 
@@ -30,10 +28,15 @@ gfoldMap :: (ADT t, Constraints t c, Monoid m)
 
 We pass the proxy `For Binary` to tell `gfoldMap` what class we want to use,
 and then we need a function of type `forall s. Binary s => s -> Put`,
-which is simply `put`! But before that we need to store a byte containing
-the index of the constructor, so we'll know what to do when we `get`.
+which is simply `put`. But before that we need to store a byte containing
+the index of the constructor, so we'll know what to do when we `get`:
 
-`Get` is `Applicative`, so we can use `createA`.
+```haskell
+gget :: (ADT t, Constraints t Binary) => Get t
+gget = getWord8 >>= \ix -> createA (For :: For Binary) get !! fromEnum ix
+```
+
+`Get` is `Applicative`, which allows us to use `createA`:
 
 ```haskell
 createA :: (ADT t, Constraints t c, Applicative f)
@@ -49,8 +52,8 @@ that we stored first.
 
 The next example is `hashWithSalt` from the [hashable][5]. It's type is
 `Int -> a -> Int`, which at first sight doesn't look like something `one-liner`
-can handle. But if we flip it we get `a -> Int -> Int`, and `Int -> Int` is
-a monoid if we wrap it in `Endo`, so we can use `gfoldMap` again.
+can handle. However, if we flip it we get `a -> Int -> Int`, and `Int -> Int` is
+a monoid if we wrap it in `Endo`. Now we can use `gfoldMap` again.
 
 ```haskell
 ghashWithSalt :: (ADT t, Constraints t Hashable) => Int -> t -> Int
@@ -66,26 +69,20 @@ and and then hash all the subcomponents, while effectively composing all the
 --------------------------
 
 The next example is going to be a walk in the park, it is `rnf` from the
-[deepseq-generics][7] package. `()` is a monoid, so `gfoldMap` again is what we use:
+[deepseq-generics][7] package. `()` is a monoid, therefore `gfoldMap`
+again is what we use:
 
 ```haskell
 grnf :: (ADT t, Constraints t NFData) => t -> ()
 grnf = gfoldMap (For :: For NFData) rnf
 ```
 
-One minor detail, we should check that the `Monoid` instance of `()` is strict.
-[Let's see][8]:
-
-```haskell
-instance Monoid () where
-        -- Should it be strict?
-        mempty        = ()
-        _ `mappend` _ = ()
-        mconcat _     = ()
-```
-
-D'oh, look at that comment! So we must create our own strict unit type,
+One minor detail, this requires the `Monoid` instance of `()` to be strict.
+Sadly [it isn't][8], the person who implemented it even [left a comment][8],
+wondering “Should it be strict?”
+Now we must create our own strict unit type,
 and convert between that and `()`. I'll skip that here.
+
 The real world can be annoying sometimes!
 
 `GHC.Generics.Lens`
@@ -96,23 +93,33 @@ Straight away this was a non-standard use of `GHC.Generics`, because it does
 a deep traversal, i.e. all the immediate subcomponents also need to be an instance
 of `Generic`.
 
-It was possible to do this without chaning the library, but it was quite tricky
-and it required [a hack to prevent GHC to detect a class declaration cycle][9].
+It was possible to do this without changing the library, but it was quite tricky
+and it required [a hack to prevent GHC from detecting a class declaration cycle][9].
 Also there's the problem that the GHC Generics representation of atomic types
 like `Char` and `Int` contain themselves.
-So I decided to add a utility constraint `Deep` to the library that calculates
+To make this use case easier for the user, I added a utility constraint `Deep`
+to the library that calculates
 the constraints needed for all the deep components of a datatype to be an
 instance of the given class, and a utility function `isAtom` to test if the
 given type is atomic or not.
 
-With these utility functions `tinplate` can be relatively cleanly implemented
-using `gtraverse`:
+With that in place, I needed only one more utility function, which casts
+a function of type `b -> f b` to a function of type `a -> f a`, if it can be
+determined through the `Typable` class that `b` and `a` are actually the same.
+In that case, `eqT` returns `Just Refl`, with Refl being of type `a :~: a`,
+which lets the compiler know that `a` and `b` are the same type when you
+pattern match on it.
 
-```Haskell
+```haskell
 whenCastableOrElse :: forall a b f. (Typeable a, Typeable b)
                    => (b -> f b) -> (a -> f a) -> a -> f a
 f `whenCastableOrElse` g = maybe g (\Refl -> f) (eqT :: Maybe (a :~: b))
+```
 
+With these utility functions `tinplate` can be relatively cleanly implemented
+using `gtraverse`:
+
+```haskell
 tinplate :: forall t b. (Typeable b, Deep Typeable t) => Traversal' t b
 tinplate f
   | isAtom (Proxy :: Proxy t) = f `whenCastableOrElse` pure
@@ -120,16 +127,25 @@ tinplate f
                    f `whenCastableOrElse` tinplate f
 ```
 
+`gtraverse` is a generalisation of `traverse`, and `gfoldMap` can be
+implemented with it using `Const`, just like `foldMap` can be
+implemented with `traverse`.
+
+```haskell
+gtraverse :: (ADT t, Constraints t c, Applicative f)
+          => for c -> (forall s. c s => s -> f s) -> t -> f t
+```
+
 `Test.SmallCheck.Series`
 ------------------------
 
 The last examples are `series` and `coseries` from the [smallcheck][10] package.
 
-`Series m` is `Applicative` so it may seem we could use `createA` directly. But
-the documentation of SmallCheck makes it clear we're not supposed to use `<*>`,
-but instead use `<~>` to get fair, breadth-first generation of values. So we'll
-create a newtype wrapper to get the right `Applicative`. Then we can call
-`createA`, and fold the ways to produce series with `(\/)`.
+`Series m` is `Applicative` so it may seem we could use `createA` directly.
+However the documentation of SmallCheck makes it clear we're not supposed to
+use `<*>`, but instead use `<~>` to get fair, breadth-first generation of values.
+This is easily fixed by creating a newtype wrapper to get a fair `Applicative`.
+Then we can call `createA`, and fold the ways to produce series with `(\/)`.
 
 ```haskell
 newtype Fair m a = Fair { runFair :: Series m a } deriving Functor
@@ -142,30 +158,33 @@ gseries = foldr ((\/) . decDepth . runFair) mzero $ createA (For :: For (Serial 
 ```
 
 `coseries` was the most interesting of all the generic functions I found on
-Hackage. It's type is:
+Hackage. Its type is:
 
 ```haskell
 coseries :: Series m b -> Series m (a -> b)
 ```
 
-So to generate coseries we need a newtype wrapper:
+To implement coseries generically we'll wrap that type in a newtype wrapper:
 
 ```haskell
 newtype CoSeries m a = CoSeries { runCoSeries :: forall r. Series m r -> Series m (a -> r) }
 ```
 
-Is `Coseries m` `Applicative`? No, it can't be because it is contravariant!
+Is `Coseries m` `Applicative`? No, it can't be because it is
+actually contravariant:
 
 ```haskell
 instance Contravariant (CoSeries m) where
   contramap f (CoSeries g) = CoSeries $ fmap (. f) . g
 ```
 
-This was a use case I hadn't thought of yet. So let's see if we can find a
-function that we can add to `one-liner`.
-Purely by accident just a few weeks earlier Edward Kmett figured out a way
-to do [`Applicative` contravariantly][11], using Day convolution! And
-`CoSeries m` turns out to be an instance:
+I hadn't thought of contravariant functors yet, they are not (yet) used much
+in Haskell. No function in `one-liner` could deal with them.
+
+Coincidently just a few weeks earlier Edward Kmett figured out a way
+to do [`Applicative` contravariantly][11], using a thing called Day convolution.
+`CoSeries m` turns out to be an instance, with the implementation of `divide`
+largly following the implementation of [the Smallcheck function `alts2`][12].
 
 ```haskell
 instance MonadLogic m => Divisible (CoSeries m) where
@@ -185,7 +204,7 @@ constructor of the value that is being consumed.
 
 For that we only need to look a bit further down the documentation of `Divisible`
 and there we find `Decidable` which is a contravariant version of `Alternative`,
-and this precisely fits our needs! So the generic function that consumes
+and this precisely fits our needs! Then the generic function that consumes
 values becomes:
 
 ```haskell
@@ -193,7 +212,7 @@ consume :: (ADT t, Constraints t c, Decidable f)
         => for c -> (forall s. c s => f s) -> f t
 ```
 
-So, is `CoSeries m` `Decidable`? Yes it is!
+Is `CoSeries m` `Decidable`? Yes it is!
 
 ```haskell
 instance MonadLogic m => Decidable (CoSeries m) where
@@ -247,3 +266,4 @@ new additions to the library.
 [9]: http://stackoverflow.com/a/14133573/5852
 [10]: http://hackage.haskell.org/package/smallcheck-1.1.1/docs/Test-SmallCheck-Series.html
 [11]: https://hackage.haskell.org/package/contravariant-1.2/docs/Data-Functor-Contravariant-Divisible.html
+[12]: http://hackage.haskell.org/package/smallcheck-1.1.1/docs/Test-SmallCheck-Series.html#v:alts2
