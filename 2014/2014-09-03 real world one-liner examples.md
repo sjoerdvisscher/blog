@@ -230,6 +230,9 @@ gcoseries :: forall t m r. (ADT t, Constraints t (CoSerial m), MonadLogic m)
 gcoseries = runCoSeries $ consume (For :: For (CoSerial m)) (CoSeries coseries)
 ```
 
+_Edit:_ If you want to see another contravariant example, I also implemented 
+[QuickChecks `coarbitrary`][14].
+
 By the way, working with contravariant functors _really_ made my head hurt.
 I would not have been able to implement this if I wouldn't have been able to
 mostly just follow the types everywhere.
@@ -269,3 +272,4 @@ _You can add comments to this article [on reddit][13]._
 [11]: https://hackage.haskell.org/package/contravariant-1.2/docs/Data-Functor-Contravariant-Divisible.html
 [12]: http://hackage.haskell.org/package/smallcheck-1.1.1/docs/Test-SmallCheck-Series.html#v:alts2
 [13]: http://www.reddit.com/r/haskell/comments/2feen3/real_world_oneliner_examples/
+[14]: https://gist.github.com/sjoerdvisscher/747ea56e962287ce9224
