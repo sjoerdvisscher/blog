@@ -18,7 +18,7 @@ gput :: (ADT t, Constraints t Binary) => t -> Put
 gput t = putWord8 (toEnum (ctorIndex t)) <> gfoldMap (For :: For Binary) put t
 ```
 
-`Put` is a `Monoid` (with `mappend = return ()` and `(<>) = (>>)`), so we can
+`Put` is a `Monoid` (with `mempty = return ()` and `(<>) = (>>)`), so we can
 use `gfoldMap`.
 
 ```haskell
