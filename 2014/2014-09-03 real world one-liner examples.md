@@ -62,7 +62,7 @@ ghashWithSalt = flip $ \t -> flip hashWithSalt (ctorIndex t) .
 ```
 
 [As the documentation explains][6] we should first hash the constructor index
-and and then hash all the subcomponents, while effectively composing all the
+and then hash all the subcomponents, while effectively composing all the
 `Int -> Int` functions along the way.
 
 `Control.DeepSeq.Generics`
@@ -116,7 +116,7 @@ whenCastableOrElse :: forall a b f. (Typeable a, Typeable b)
 f `whenCastableOrElse` g = maybe g (\Refl -> f) (eqT :: Maybe (a :~: b))
 ```
 
-With these utility functions `tinplate` can be relatively cleanly implemented
+With these utility functions `tinplate` can be rather cleanly implemented
 using `gtraverse`:
 
 ```haskell
@@ -181,10 +181,10 @@ instance Contravariant (CoSeries m) where
 I hadn't thought of contravariant functors yet, they are not (yet) used much
 in Haskell. No function in `one-liner` could deal with them.
 
-Coincidently just a few weeks earlier Edward Kmett figured out a way
-to do [`Applicative` contravariantly][11], using a thing called Day convolution.
+Coincidentally just a few weeks earlier Edward Kmett figured out a way
+to do [`Applicative` contravariantly][11], using a thing called _Day convolution_.
 `CoSeries m` turns out to be an instance, with the implementation of `divide`
-largly following the implementation of [the Smallcheck function `alts2`][12].
+largely following the implementation of [the Smallcheck function `alts2`][12].
 
 ```haskell
 instance MonadLogic m => Divisible (CoSeries m) where
@@ -238,19 +238,19 @@ What doesn't work?
 -----------------
 There are 3 uses of generics that I can think of which don't work with `one-liner`:
 
-- Code that uses meta data. For example Aeson needs record field names to generate
+- Code that uses meta data. For example `aeson` needs record field names to generate
   JavaScript property names.
 - Code that does calculations on types. For example deriving zippers needs to
   calculate the derivative of a type.
 - Code that needs non-trivial return types. An example here is deriving lenses,
-  which if you do it generically returns a list of HLists, with a lens to each
+  which if you do it generically returns a list of `HList`s, with a lens to each
   field of each constructor.
 
 Conclusion
 ----------
 Looking for practical uses of generics turned out to be very useful. As I had
 hoped, most generic functions that did not fit in one of the 3 categories above,
-were implementable with `one-liner`, and the few ones that didn't provided useful
+were implementable with `one-liner`, and the few ones that didn't provide useful
 new additions to the library.
 
 _You can add comments to this article [on reddit][13]._
